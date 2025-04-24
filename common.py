@@ -83,10 +83,10 @@ class AntPerception:
         self.ant_id = None
 
     def can_see_food(self) -> bool:
-        return TerrainType.FOOD.value in [cell for cell in self.visible_cells.values()]
+        return TerrainType.FOOD in [cell for cell in self.visible_cells.values()]
 
     def can_see_colony(self) -> bool:
-        return TerrainType.COLONY.value in [
+        return TerrainType.COLONY in [
             cell for cell in self.visible_cells.values()
         ]
 
@@ -95,7 +95,7 @@ class AntPerception:
         best_dir = None
 
         for (dx, dy), cell_type in self.visible_cells.items():
-            if cell_type == TerrainType.FOOD.value:
+            if cell_type == TerrainType.FOOD:
                 dist = math.sqrt(dx * dx + dy * dy)
                 if dist < min_dist:
                     min_dist = dist
@@ -108,7 +108,7 @@ class AntPerception:
         best_dir = None
 
         for (dx, dy), cell_type in self.visible_cells.items():
-            if cell_type == TerrainType.COLONY.value:
+            if cell_type == TerrainType.COLONY:
                 dist = math.sqrt(dx * dx + dy * dy)
                 if dist < min_dist:
                     min_dist = dist
