@@ -11,17 +11,16 @@ class FirstStrategy(AntStrategy):
 
     def __init__(self):
         """Initialize the strategy with last action tracking"""
-        # Track the last action to alternate between movement and pheromone deposit
         self.ants_last_action = {}  # ant_id -> last_action
         self.food_positions = {}  # List to store food positions
         self.colony_position = {}  # List to store colony positions
         self.current_position = {}
         self.old_positions = {}  # List to store old positions
-        self.i = 0
+        
     def decide_action(self, perception: AntPerception) -> AntAction:
         """Decide an action based on current perception"""
-        self.i+=1
         
+
         ant_id = perception.ant_id
         last_action = self.ants_last_action.get(ant_id, None)
         if ant_id not in self.current_position:
@@ -36,13 +35,8 @@ class FirstStrategy(AntStrategy):
 
         # If the ant is at the colony, store its position
         if ant_id not in self.colony_position and perception.visible_cells.get((0, 0)) == TerrainType.COLONY:
-            print(f"Ant {ant_id} is at the colony at position {self.current_position[ant_id]} and in direction {perception.direction}")
             self.colony_position[ant_id] = self.current_position[ant_id]
 
-        if(self.i<50):
-            print(self.current_position)
-            print(self.colony_position)
-            print(perception.visible_cells)
         # Priority 1: Pick up food if standing on it
         if (
             not perception.has_food
@@ -74,8 +68,9 @@ class FirstStrategy(AntStrategy):
             best_direction = perception.get_colony_direction()
             if best_direction is not None:
                 if best_direction != perception.direction.value or check_move(perception) == False:
-                    self.ants_last_action[ant_id] = AntAction.TURN_RIGHT
-                    return AntAction.TURN_RIGHT
+                    action = self._decide_movement(perception, ant_id)
+                    self.ants_last_action[ant_id] = action
+                    return action
                 else:
                     self.ants_last_action[ant_id] = AntAction.MOVE_FORWARD
                     self.current_position[ant_id] = move(perception.direction.value, self.current_position[ant_id][0], self.current_position[ant_id][1])
@@ -89,8 +84,9 @@ class FirstStrategy(AntStrategy):
                 best_direction = perception.get_food_direction()
                 if best_direction is not None:
                     if best_direction != perception.direction.value or check_move(perception) == False:
-                        self.ants_last_action[ant_id] = AntAction.TURN_RIGHT
-                        return AntAction.TURN_RIGHT
+                        action = self._decide_movement(perception, ant_id)
+                        self.ants_last_action[ant_id] = action
+                        return action
                     else:
                         self.ants_last_action[ant_id] = AntAction.MOVE_FORWARD
                         self.current_position[ant_id] = move(perception.direction.value, self.current_position[ant_id][0], self.current_position[ant_id][1])
@@ -100,8 +96,9 @@ class FirstStrategy(AntStrategy):
                     best_direction = get_direction(self.current_position[ant_id][0], self.current_position[ant_id][1], self.food_positions[ant_id][0][0], self.food_positions[ant_id][0][1])
                     if best_direction is not None:
                         if best_direction != perception.direction.value or check_move(perception) == False:
-                            self.ants_last_action[ant_id] = AntAction.TURN_RIGHT
-                            return AntAction.TURN_RIGHT
+                            action = self._decide_movement(perception, ant_id)
+                            self.ants_last_action[ant_id] = action
+                            return action
                         else:
                             self.ants_last_action[ant_id] = AntAction.MOVE_FORWARD
                             self.current_position[ant_id] = move(perception.direction.value, self.current_position[ant_id][0], self.current_position[ant_id][1])
@@ -109,13 +106,15 @@ class FirstStrategy(AntStrategy):
                 
 
         # Priority 4B: If the ant has food and can see the colony, try to move toward it
+        action = None
         if perception.has_food:
             if perception.can_see_colony():
                 best_direction = perception.get_colony_direction()
                 if best_direction is not None:
                     if best_direction != perception.direction.value or check_move(perception) == False:
-                        self.ants_last_action[ant_id] = AntAction.TURN_RIGHT
-                        return AntAction.TURN_RIGHT
+                        action = self._decide_movement(perception, ant_id)
+                        self.ants_last_action[ant_id] = action
+                        
                     else:
                         self.ants_last_action[ant_id] = AntAction.MOVE_FORWARD
                         self.current_position[ant_id] = move(perception.direction.value, self.current_position[ant_id][0], self.current_position[ant_id][1])
@@ -125,12 +124,15 @@ class FirstStrategy(AntStrategy):
                     best_direction = get_direction(self.current_position[ant_id][0], self.current_position[ant_id][1], self.colony_position[ant_id][0], self.colony_position[ant_id][1])
                     if best_direction is not None:
                         if best_direction != perception.direction.value or check_move(perception) == False:
-                            self.ants_last_action[ant_id] = AntAction.TURN_RIGHT
-                            return AntAction.TURN_RIGHT
+                            action = self._decide_movement(perception, ant_id)
+                            self.ants_last_action[ant_id] = action
+                            return action
+                           
                         else:
                             self.ants_last_action[ant_id] = AntAction.MOVE_FORWARD
                             self.current_position[ant_id] = move(perception.direction.value, self.current_position[ant_id][0], self.current_position[ant_id][1])
-                            return AntAction.MOVE_FORWARD
+                            action = AntAction.MOVE_FORWARD
+                            return action
 
         # Otherwise, perform movement
         action = self._decide_movement(perception, ant_id)
@@ -149,7 +151,7 @@ class FirstStrategy(AntStrategy):
             self.current_position[ant_id] = move(perception.direction.value, self.current_position[ant_id][0], self.current_position[ant_id][1])
             return AntAction.MOVE_FORWARD
         elif movement_choice < 0.9 :  # 20% chance to turn left
-            return AntAction.TURN_LEFT
+            return AntAction.TURN_RIGHT
         else:  # 20% chance to turn right
             return AntAction.TURN_RIGHT
 
@@ -207,27 +209,27 @@ def check_move(perception: AntPerception) -> bool:
     Check if the move is valid
     """
     if perception.direction.value ==0:
-        if (0,-1) in perception.visible_cells:
+        if (0,-1) in perception.visible_cells and perception.visible_cells[(0,-1)] != TerrainType.WALL:
             return True
-    elif perception.direction.value ==1:
-        if (1,-1) in perception.visible_cells:
+    elif perception.direction.value ==1 :
+        if (1,-1) in perception.visible_cells and perception.visible_cells[(1,-1)] != TerrainType.WALL:
             return True
     elif perception.direction.value ==2:
-        if (1,0) in perception.visible_cells:
+        if (1,0) in perception.visible_cells and perception.visible_cells[(1,0)] != TerrainType.WALL:
             return True
     elif perception.direction.value ==3:
-        if (1,1) in perception.visible_cells:
+        if (1,1) in perception.visible_cells and perception.visible_cells[(1,1)] != TerrainType.WALL:
             return True
     elif perception.direction.value ==4:
-        if (0,1) in perception.visible_cells:
+        if (0,1) in perception.visible_cells and perception.visible_cells[(0,1)] != TerrainType.WALL:
             return True
     elif perception.direction.value ==5:
-        if (-1,1) in perception.visible_cells:
+        if (-1,1) in perception.visible_cells and perception.visible_cells[(-1,1)] != TerrainType.WALL:
             return True
     elif perception.direction.value ==6:
-        if (-1,0) in perception.visible_cells:
+        if (-1,0) in perception.visible_cells and perception.visible_cells[(-1,0)] != TerrainType.WALL:
             return True
     elif perception.direction.value ==7:
-        if (-1,-1) in perception.visible_cells:
+        if (-1,-1) in perception.visible_cells and perception.visible_cells[(-1,-1)] != TerrainType.WALL:
             return True
     return False
