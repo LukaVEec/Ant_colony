@@ -18,7 +18,7 @@ class PheromoneMap:
         self.evaporation_rate = evaporation_rate
         # Use a dictionary for sparse representation of pheromones
         # Key is (x, y) tuple, value is pheromone strength
-        self.values = {}
+        self.values = {} # {(x, y) : pheromone_level}
         self.modified_positions = set()
 
     def add_pheromone(self, x: int, y: int, amount: float) -> None:
@@ -31,8 +31,8 @@ class PheromoneMap:
 
     def get_value(self, x: int, y: int) -> float:
         """Get pheromone value at position (x, y)"""
-        if 0 <= x < self.width and 0 <= y < self.height:
-            return self.values.get((x, y), 0.0)
+        if 0 <= x < self.width and 0 <= y < self.height: # on vérifie qu'on se situe bien dans la map
+            return self.values.get((x, y), 0.0)  # renvoie pheromone_level de (x,y) et 0.0 si aucune valeure
         return 0.0
 
     def evaporate(self) -> None:
@@ -63,16 +63,16 @@ class PheromoneMap:
         max_value = 0.0
         best_direction = None
 
-        for direction in Direction:
-            dx, dy = Direction.get_delta(direction)
+        for direction in Direction:  # on itère sur toutes les cases voisines de la fourmi
+            dx, dy = Direction.get_delta(direction) # p.ex (1,0) pour East
             value_sum = 0.0
 
             for strength in range(1, vision_range + 1):
-                check_x, check_y = x + dx * strength, y + dy * strength
+                check_x, check_y = x + dx * strength, y + dy * strength # (1, 0), (2,0) et (3,0) pour East
                 if 0 <= check_x < self.width and 0 <= check_y < self.height:
-                    value_sum += (
-                        self.get_value(int(check_x), int(check_y)) / strength
-                    )  # Closer is stronger
+                    # Pheromones are stronger if closer to the ant
+                    value_sum += (self.get_value(int(check_x), int(check_y)) / strength)
+
 
             if value_sum > max_value:
                 max_value = value_sum

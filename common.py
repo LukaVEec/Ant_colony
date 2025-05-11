@@ -67,9 +67,9 @@ class AntPerception:
     """Class representing what an ant can perceive from its environment"""
 
     def __init__(self):
-        self.visible_cells = {}
-        self.food_pheromone = {}
-        self.home_pheromone = {}
+        self.visible_cells = {} # {(x, y), TerrainType}
+        self.food_pheromone = {} # {(x, y), pheromone_level}
+        self.home_pheromone = {} # {(x, y), pheromone_level}
         self.nearby_ants = []
 
         # Ant-specific properties
@@ -101,7 +101,7 @@ class AntPerception:
                     min_dist = dist
                     best_dir = self._get_direction_from_delta(dx, dy)
 
-        return best_dir
+        return best_dir # p.ex NORTH renvoie 0
 
     def get_colony_direction(self) -> Optional[int]:
         min_dist = float("inf")
