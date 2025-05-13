@@ -6,7 +6,7 @@ import environment
 from ant import AntStrategy, Ant
 from common import AntPerception, AntAction, TerrainType, Direction
 from environment import PheromoneMap, Environment
-from non_collaborative import check_move
+#from non_collaborative import check_move
 
 
 class CollabStrategy(AntStrategy):
@@ -25,8 +25,9 @@ class CollabStrategy(AntStrategy):
 
         # Get ant's ID to track its actions
         ant_id = perception.ant_id
-        self.x[ant_id] = 0
-        self.y[ant_id] = 0
+        if ant_id not in self.x and ant_id not in self.y:
+            self.x[ant_id] = 0
+            self.y[ant_id] = 0
         last_action = self.ants_last_action.get(ant_id, None) # ne pas oublier de le mettre à jour !!!
 
         # Ant carries no food : search food
@@ -43,12 +44,11 @@ class CollabStrategy(AntStrategy):
 
         elif perception.has_food:
             # Drop food if at colony and carrying food
-            if TerrainType.COLONY in perception.visible_cells.values():
-                for pos, terrain in perception.visible_cells.items():
-                    if terrain == TerrainType.COLONY:
-                        if pos == (0, 0):  # Directly on colony
-                            self.ants_last_action[ant_id] = AntAction.DROP_FOOD
-                            return AntAction.DROP_FOOD
+            if ((0, 0) in perception.visible_cells  # théoriquement toujours vrai
+                    and perception.visible_cells[(0, 0)] == TerrainType.COLONY
+            ):
+                self.ants_last_action[ant_id] = AntAction.DROP_FOOD
+                return AntAction.DROP_FOOD
 
         # Alternate between movement and dropping pheromones
         # If last action was not a pheromone drop, drop pheromone
@@ -78,8 +78,11 @@ class CollabStrategy(AntStrategy):
             if perception.can_see_food():
                 for (dx, dy), terrain in perception.visible_cells.items():
                     if terrain == TerrainType.FOOD:
-                        if dy > 0 and check_move(perception):  # Food is ahead in some direction
+                        if dy > 0 and self.valid_move(perception):  # Food is ahead in some direction
                             self.ants_turns[ant_id] = 0
+                            if ant_id not in self.x and ant_id not in self.y:
+                                self.x[ant_id] = 0
+                                self.y[ant_id] = 0
                             self.update_position(perception)
                             return AntAction.MOVE_FORWARD
 
@@ -97,7 +100,7 @@ class CollabStrategy(AntStrategy):
             if perception.can_see_colony():
                 for (dx, dy), terrain in perception.visible_cells.items():
                     if terrain == TerrainType.COLONY:
-                        if dy > 0 and check_move(perception):
+                        if dy > 0 and self.valid_move(perception):
                             self.ants_turns[ant_id] = 0
                             self.update_position(perception)
                             return AntAction.MOVE_FORWARD
@@ -118,15 +121,26 @@ class CollabStrategy(AntStrategy):
 
         ### FOURMIS restent bloquées à cause d'une équivalence de
 
+        if not ph_type :
+            return self.decide_random_movement(perception)
+
+        if perception.ant_id not in self.ants_turns:
+            self.ants_turns[perception.ant_id] = 0
+
+        if self.ants_turns[perception.ant_id] > 3:
+            return AntAction.MOVE_FORWARD if self.valid_move(perception) else self.decide_random_movement(perception)
+
         ant_dir = perception.direction.value
         x_ant = self.x[perception.ant_id]
         y_ant = self.y[perception.ant_id]
-        max_level = 0
+
         max_value = 0.0
         best_dir = 0
+
+
+        """
         max_x, max_y = 0, 0
-
-
+        max_level = 0
         for (x, y), ph_level in ph_type.items():
             if ph_level != None :
                 if ph_level > max_level:
@@ -136,12 +150,10 @@ class CollabStrategy(AntStrategy):
         if max_level == 0:
             # Random movement if no pheromone detected
             return self.decide_random_movement(perception)
-
-
+        """
 
         randomizer = random.random()  # pour empêcher de rester bloqué trop longtemps
 
-        """
         for direction in Direction:  # on itère sur toutes les cases voisines de la fourmi
             dx, dy = Direction.get_delta(direction) # p.ex (1,0) pour East
             value_sum = 0.0
@@ -149,14 +161,11 @@ class CollabStrategy(AntStrategy):
             for strength in range(1, 4):
                 check_x, check_y = x_ant + dx * strength, y_ant + dy * strength  # (1, 0), (2,0) et (3,0) pour East
                 if 0 <= check_x <= 35 and 0 <= check_y <= 35:
-                    ph_level = ph_type.get((check_x, check_y), 0.0)
                     value_sum += ph_type.get((check_x, check_y), 0.0)
-
 
             if value_sum > max_value:
                 max_value = value_sum
-                best_dir = direction
-        """
+                best_dir = direction.value
 
         if max_value == 0 : # aucune phéromone captée
             return self.decide_random_movement(perception)
@@ -170,122 +179,9 @@ class CollabStrategy(AntStrategy):
                 #and perception.steps_taken > 150 and perception.has_food):
             #return self.decide_random_movement(perception)
 
-        ph_dir = perception._get_direction_from_delta(max_x, max_y)
-        return self.decide_turn(perception, ph_dir, ant_dir)
-        #return self.decide_turn(perception, best_dir, ant_dir)
-
-    def decide_movement_old(self, perception: AntPerception) -> AntAction | None:
-        """Decide which direction to move based on current state"""
-
-        ant_dir = perception.direction.value
-
-        # Ant carries no food : search food
-
-        if not perception.has_food:
-            # Priority F.1 : Ant can see food so moves towards it
-
-            for (dx, dy), terrain in perception.visible_cells.items():
-                if terrain == TerrainType.FOOD:
-                    if dy > 0:  # Food is ahead in some direction
-                        if check_move(perception) :
-                            return AntAction.MOVE_FORWARD
-                        else :
-                            return self.decide_random_movement(perception)
-
-
-
-            if perception.can_see_food():
-                best_dir = perception.get_food_direction()  # 0 p.ex. (NORTH)
-
-                # Aller tout droit car ant se trouve dans la bonne direction
-                if (best_dir == ant_dir) and check_move(perception):
-                    return AntAction.MOVE_FORWARD
-                elif (best_dir > ant_dir and best_dir > 0) or (best_dir < ant_dir and best_dir == 0):
-                    return AntAction.TURN_RIGHT
-                else:
-                    return AntAction.TURN_LEFT
-
-            # Priority F.2 : Ant detects food pheromone so follows strongest direction
-            ## l'impression que c'est erroné
-            
-            if len(perception.food_pheromone) > 0 :
-
-                max_value = 0.0
-                ph_dir = None
-                (x, y), ph_level = perception.food_pheromone[0]
-
-                for direction in Direction:  # on itère sur toutes les cases voisines de la fourmi
-                    dx, dy = Direction.get_delta(direction)  # p.ex (1,0) pour East
-                    value_sum = 0.0
-
-                    for strength in range(1, 4):
-                        check_x, check_y = x + dx * strength, y + dy * strength  # (1, 0), (2,0) et (3,0) pour East
-                        #if Environment.is_valid_position(self, check_x, check_y):
-                        # Pheromones are stronger if closer to the ant
-                        value_sum += (ph_level / strength)
-
-                    if value_sum > max_value:
-                        max_value = value_sum
-                        ph_dir = direction
-
-
-                # Aller tout droit car ant se trouve dans la bonne direction
-                if (ph_dir == ant_dir) and check_move(perception):
-                    return AntAction.MOVE_FORWARD
-                elif (ph_dir > ant_dir and ph_dir > 0) or (ph_dir < ant_dir and ph_dir == 0):
-                    return AntAction.TURN_RIGHT
-                else:
-                    return AntAction.TURN_LEFT
-
-
-        # Ant carries food : search colony
-
-        if perception.has_food:
-            # Priority C.1 : Ant can see colony so move towards colony
-            if perception.can_see_colony():
-
-                for (dx, dy), terrain in perception.visible_cells.items():
-                    if terrain == TerrainType.COLONY:
-                        if dy > 0:  # Food is ahead in some direction
-                            return AntAction.MOVE_FORWARD
-
-                best_dir = perception.get_colony_direction()
-                return self.decide_turn(perception, best_dir, ant_dir)
-
-            # Priority C.2 : Ant detects home pheromone so follows strongest direction
-
-            if len(perception.home_pheromone) > 0 :
-
-                max_value = 0.0
-                ph_dir = None
-                (x, y), ph_level = perception.home_pheromone[0]
-
-                for direction in Direction:  # on itère sur toutes les cases voisines de la fourmi
-                    dx, dy = Direction.get_delta(direction)  # p.ex (1,0) pour East
-                    value_sum = 0.0
-
-                    for strength in range(1, 4):
-                        check_x, check_y = x + dx * strength, y + dy * strength  # (1, 0), (2,0) et (3,0) pour East
-                        #if Environment.is_valid_position(self, check_x, check_y):
-                        # Pheromones are stronger if closer to the ant
-                        value_sum += (ph_level / strength)
-
-                    if value_sum > max_value:
-                        max_value = value_sum
-                        ph_dir = direction
-
-
-                # Aller tout droit car ant se trouve dans la bonne direction
-                if (ph_dir == ant_dir) and check_move(perception):
-                    return AntAction.MOVE_FORWARD
-                elif (ph_dir > ant_dir and ph_dir > 0) or (ph_dir < ant_dir and ph_dir == 0):
-                    return AntAction.TURN_RIGHT
-                else:
-                    return AntAction.TURN_LEFT
-
-
-        self.decide_random_movement(perception)
-
+        #ph_dir = perception._get_direction_from_delta(max_x, max_y)
+        #return self.decide_turn(perception, ph_dir, ant_dir)
+        return self.decide_turn(perception, best_dir, ant_dir)
 
 
     def decide_random_movement(self, perception: AntPerception) -> AntAction:
@@ -302,7 +198,7 @@ class CollabStrategy(AntStrategy):
             pct = 0.92
             turn = 0.96
 
-        if check_move(perception) and movement_choice < pct :
+        if self.valid_move(perception) and movement_choice < pct :
                 self.ants_turns[ant_id] = 0
                 self.update_position(perception)
                 return AntAction.MOVE_FORWARD
@@ -324,7 +220,7 @@ class CollabStrategy(AntStrategy):
 
         ant_id = perception.ant_id
 
-        if check_move(perception) and  (dirA == dirB):
+        if self.valid_move(perception) and  (dirA == dirB):
                 self.ants_turns[ant_id] = 0
                 self.update_position(perception)
                 return AntAction.MOVE_FORWARD
@@ -342,7 +238,7 @@ class CollabStrategy(AntStrategy):
             return AntAction.TURN_LEFT
 
 
-    def check_move(self, perception: AntPerception) -> bool:
+    def valid_move(self, perception: AntPerception) -> bool:
         """
         Check if the move is valid
         """
