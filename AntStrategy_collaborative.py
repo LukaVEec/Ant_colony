@@ -127,7 +127,7 @@ class CollabStrategy(AntStrategy):
         if perception.ant_id not in self.ants_turns:
             self.ants_turns[perception.ant_id] = 0
 
-        if self.ants_turns[perception.ant_id] > 3:
+        if self.ants_turns[perception.ant_id] > 2 :
             return AntAction.MOVE_FORWARD if self.valid_move(perception) else self.decide_random_movement(perception)
 
         ant_dir = perception.direction.value
