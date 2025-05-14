@@ -38,6 +38,7 @@ class CollabStrategy(AntStrategy):
                 and perception.visible_cells[(0, 0)] == TerrainType.FOOD
             ):
                 self.ants_last_action[ant_id] = AntAction.PICK_UP_FOOD
+                self.ants_turns[ant_id] = 0
                 return AntAction.PICK_UP_FOOD
 
         # Ant carries food : search colony
@@ -48,6 +49,7 @@ class CollabStrategy(AntStrategy):
                 and perception.visible_cells[(0, 0)] == TerrainType.COLONY
             ):
                 self.ants_last_action[ant_id] = AntAction.DROP_FOOD
+                self.ants_turns[ant_id] = 0
                 return AntAction.DROP_FOOD
 
         # Alternate between movement and dropping pheromones
@@ -105,7 +107,7 @@ class CollabStrategy(AntStrategy):
         if perception.ant_id not in self.ants_turns:
             self.ants_turns[perception.ant_id] = 0
 
-        if self.ants_turns[perception.ant_id] > 2 : # empêche trop de rotations consécutives
+        if self.ants_turns[perception.ant_id] > 8 : # empêche trop de rotations consécutives
             return AntAction.MOVE_FORWARD if self.valid_move(perception) else self.decide_random_movement(perception)
 
         ant_dir = perception.direction.value
@@ -114,7 +116,7 @@ class CollabStrategy(AntStrategy):
         best_dir = 0
 
 
-        """max_x, max_y = 0, 0
+        max_x, max_y = 0, 0
         max_level = 0
         for (x, y), ph_level in ph_type.items():
             if ph_level != None :
@@ -125,9 +127,8 @@ class CollabStrategy(AntStrategy):
         if max_level == 0:
             # Random movement if no pheromone detected
             return self.decide_random_movement(perception)
+
         """
-
-
         for direction in Direction:  # on itère sur toutes les cases voisines de la fourmi
             dx, dy = Direction.get_delta(direction) # p.ex (1,0) pour East
             value_sum = 0.0
@@ -143,10 +144,10 @@ class CollabStrategy(AntStrategy):
 
         if max_value == 0 : # aucune phéromone captée
             return self.decide_random_movement(perception)
-
-        #ph_dir = perception._get_direction_from_delta(max_x, max_y)
-        #return self.decide_turn(perception, ph_dir, ant_dir)
-        return self.decide_turn(perception, ant_dir, best_dir)
+        """
+        ph_dir = perception._get_direction_from_delta(max_x, max_y)
+        return self.decide_turn(perception, ph_dir, ant_dir)
+        #return self.decide_turn(perception, ant_dir, best_dir)
 
 
     def decide_random_movement(self, perception: AntPerception) -> AntAction:
